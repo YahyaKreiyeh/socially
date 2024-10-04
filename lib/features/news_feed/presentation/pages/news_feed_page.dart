@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:socially/core/common/widgets/buttons/app_elevated_button.dart';
 import 'package:socially/core/common/widgets/buttons/app_text_button.dart';
 import 'package:socially/core/common/widgets/loading/loading_indicator.dart';
 import 'package:socially/core/extenstions/extensions.dart';
 import 'package:socially/core/utils/show_snackbar.dart';
 import 'package:socially/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:socially/features/news_feed/domain/entities/post.dart';
 import 'package:socially/features/news_feed/presentation/bloc/news_feed_bloc/news_feed_bloc.dart';
+import 'package:socially/features/news_feed/presentation/bloc/stories_bloc/stories_bloc.dart';
 import 'package:socially/features/news_feed/presentation/widgets/auth_bloc_listener.dart';
 import 'package:socially/features/news_feed/presentation/widgets/post_card.dart';
 import 'package:socially/features/news_feed/presentation/widgets/story_card.dart';
@@ -20,35 +23,46 @@ class NewsFeedPage extends StatefulWidget {
 }
 
 class _NewsFeedPageState extends State<NewsFeedPage> {
-  late ScrollController _scrollController;
+  final PagingController<int, Post> _pagingController =
+      PagingController(firstPageKey: 1);
 
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController();
-    _scrollController.addListener(_onScroll);
-  }
 
-  void _onScroll() {
-    if (_scrollController.position.extentAfter < 500) {
-      final state = context.read<NewsFeedBloc>().state;
-
-      if (state is NewsFeedLoaded) {}
-
-      if (state is NewsFeedLoaded &&
-          !state.isFetchingMore &&
-          !state.hasReachedEnd) {
-        context
-            .read<NewsFeedBloc>()
-            .add(NewsFeedFetchAllData(page: (state.posts.length ~/ 10) + 1));
-      }
-    }
+    _pagingController.addPageRequestListener((pageKey) {
+      context
+          .read<NewsFeedBloc>()
+          .add(NewsFeedNextPageRequested(pageNumber: pageKey));
+    });
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _pagingController.dispose();
     super.dispose();
+  }
+
+  void _showSignOutDialog(AuthBloc authBloc) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign out'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          AppTextButton(
+            onPressed: () => context.pop(),
+            text: 'Cancel',
+          ),
+          AppElevatedButton(
+            onPressed: () {
+              authBloc.add(AuthSignOut());
+            },
+            text: 'Sign Out',
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -77,104 +91,114 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
                 ),
               ],
             ),
-      body: BlocConsumer<NewsFeedBloc, NewsFeedState>(
-        listener: (context, state) {
-          if (state is NewsFeedFailure) {
-            showSnackBar(context, state.error);
-          }
-        },
-        builder: (context, state) {
-          if (state is NewsFeedLoading) {
-            return const LoadingIndicator();
-          } else if (state is NewsFeedLoaded) {
-            return ListView.builder(
-              itemCount: state.posts.length + (state.isFetchingMore ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == state.posts.length && state.isFetchingMore) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
-                }
-
-                if (index == 0) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 26.0),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(60),
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF1E2B39),
-                        ),
-                        height: 125,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 9,
+      body: MultiBlocListener(
+        listeners: [
+          BlocListener<NewsFeedBloc, NewsFeedState>(
+            listener: (context, state) {
+              if (state.error != null) {
+                showSnackBar(context, state.error.toString());
+              }
+              _pagingController.value = PagingState(
+                itemList: state.itemList,
+                nextPageKey: state.nextPage,
+                error: state.error,
+              );
+            },
+          ),
+          BlocListener<StoriesBloc, StoriesState>(
+            listener: (context, state) {
+              if (state is StoriesFailure) {
+                showSnackBar(context, state.error);
+              }
+            },
+          ),
+        ],
+        child: CustomScrollView(
+          slivers: [
+            BlocBuilder<StoriesBloc, StoriesState>(
+              builder: (context, state) {
+                if (state is StoriesLoaded && state.userStories.isNotEmpty) {
+                  return SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 26.0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(60),
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF1E2B39),
                           ),
-                          scrollDirection: Axis.horizontal,
-                          itemCount: state.userStories.length,
-                          itemBuilder: (context, userIndex) {
-                            final userStories = state.userStories[userIndex];
-                            return StoryCard(
-                              userStories: userStories,
-                              userIndex: userIndex,
-                              allUserStories: state.userStories,
-                            );
-                          },
-                          separatorBuilder: (BuildContext context, int index) {
-                            return const SizedBox(width: 15);
-                          },
+                          height: 125,
+                          child: ListView.separated(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 9,
+                            ),
+                            scrollDirection: Axis.horizontal,
+                            itemCount: state.userStories.length,
+                            itemBuilder: (context, userIndex) {
+                              final userStories = state.userStories[userIndex];
+                              return StoryCard(
+                                userStories: userStories,
+                                userIndex: userIndex,
+                                allUserStories: state.userStories,
+                              );
+                            },
+                            separatorBuilder:
+                                (BuildContext context, int index) {
+                              return const SizedBox(width: 15);
+                            },
+                          ),
                         ),
                       ),
                     ),
                   );
+                } else if (state is StoriesLoading) {
+                  return const SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 125,
+                      child: Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                  );
                 } else {
-                  final post = state.posts[index - 1];
+                  return const SliverToBoxAdapter(child: SizedBox.shrink());
+                }
+              },
+            ),
+            PagedSliverList<int, Post>(
+              pagingController: _pagingController,
+              builderDelegate: PagedChildBuilderDelegate<Post>(
+                itemBuilder: (context, post, index) {
                   return PostCard(
                     post: post,
                   );
-                }
-              },
-              controller: _scrollController,
-            );
-          } else if (state is NewsFeedFailure) {
-            return Center(child: Text(state.error));
-          }
-          return const SizedBox();
-        },
+                },
+                firstPageProgressIndicatorBuilder: (context) =>
+                    const LoadingIndicator(),
+                newPageProgressIndicatorBuilder: (context) =>
+                    const LoadingIndicator(),
+                firstPageErrorIndicatorBuilder: (context) => const Center(
+                  child: Text('Error loading posts.'),
+                ),
+                noItemsFoundIndicatorBuilder: (context) => const Center(
+                  child: Text('No posts found.'),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         shape: const CircleBorder(),
         onPressed: () async {
           final value = await context.pushNamed(Routes.addPostPage);
 
-          if (value) {
-            context.read<NewsFeedBloc>().add(NewsFeedFetchAllData());
+          if (value && context.mounted) {
+            _pagingController.refresh();
           }
         },
         child: const Icon(Icons.add),
-      ),
-    );
-  }
-
-  void _showSignOutDialog(AuthBloc authBloc) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Sign out'),
-        content: const Text('Are you sure you want to sign out?'),
-        actions: [
-          AppTextButton(
-            onPressed: () => context.pop(),
-            text: 'Cancel',
-          ),
-          AppElevatedButton(
-            onPressed: () {
-              authBloc.add(AuthSignOut());
-            },
-            text: 'Sign Out',
-          ),
-        ],
       ),
     );
   }

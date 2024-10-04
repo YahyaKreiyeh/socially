@@ -67,7 +67,9 @@ class NewsFeedRepositoryImpl implements NewsFeedRepository {
         return right(posts);
       }
       final posts = await newsFeedRemoteDataSource.getAllPosts(page, limit);
-      newsFeedLocalDataSource.uploadLocalPosts(posts: posts);
+      if (page == 1) {
+        newsFeedLocalDataSource.uploadLocalPosts(posts: posts);
+      }
       return right(posts);
     } on ServerException catch (e) {
       return left(Failure(e.message));
@@ -78,8 +80,8 @@ class NewsFeedRepositoryImpl implements NewsFeedRepository {
   Future<Either<Failure, List<Story>>> getAllStories() async {
     try {
       if (!await (connectionChecker.isConnected)) {
-        final posts = newsFeedLocalDataSource.loadStories();
-        return right(posts);
+        final stories = newsFeedLocalDataSource.loadStories();
+        return right(stories);
       }
       final stories = await newsFeedRemoteDataSource.getAllStories();
       newsFeedLocalDataSource.uploadLocalStories(stories: stories);

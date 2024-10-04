@@ -10,6 +10,7 @@ import 'package:socially/core/theme/app_pallete.dart';
 import 'package:socially/discover_page.dart';
 import 'package:socially/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:socially/features/news_feed/presentation/bloc/news_feed_bloc/news_feed_bloc.dart';
+import 'package:socially/features/news_feed/presentation/bloc/stories_bloc/stories_bloc.dart';
 import 'package:socially/features/news_feed/presentation/pages/news_feed_page.dart';
 import 'package:socially/features/news_feed/presentation/widgets/auth_bloc_listener.dart';
 import 'package:socially/init_dependencies.dart';
@@ -38,9 +39,14 @@ class _NavigationPageState extends State<NavigationPage> {
     MultiBlocProvider(
       providers: [
         BlocProvider(
-            create: (context) =>
-                getIt<NewsFeedBloc>()..add(NewsFeedFetchAllData())),
-        BlocProvider(create: (context) => getIt<AuthBloc>()),
+          create: (context) => getIt<NewsFeedBloc>(),
+        ),
+        BlocProvider(
+          create: (context) => getIt<StoriesBloc>()..add(FetchStories()),
+        ),
+        BlocProvider(
+          create: (context) => getIt<AuthBloc>(),
+        ),
       ],
       child: const NewsFeedPage(),
     ),

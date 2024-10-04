@@ -1,88 +1,81 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:fpdart/fpdart.dart';
-import 'package:socially/core/common/usecase/usecase.dart';
-import 'package:socially/core/error/failures.dart';
 import 'package:socially/features/news_feed/domain/entities/post.dart';
-import 'package:socially/features/news_feed/domain/entities/story.dart';
-import 'package:socially/features/news_feed/domain/entities/user_stories.dart';
 import 'package:socially/features/news_feed/domain/usecases/get_all_posts.dart';
-import 'package:socially/features/news_feed/domain/usecases/get_all_stories.dart';
 
 part 'news_feed_event.dart';
 part 'news_feed_state.dart';
 
 class NewsFeedBloc extends Bloc<NewsFeedEvent, NewsFeedState> {
   final GetAllPosts _getAllPosts;
-  final GetAllStories _getAllStories;
 
   NewsFeedBloc({
     required GetAllPosts getAllPosts,
-    required GetAllStories getAllStories,
   })  : _getAllPosts = getAllPosts,
-        _getAllStories = getAllStories,
-        super(NewsFeedInitial()) {
-    on<NewsFeedFetchAllData>(_onFetchAllData);
+        super(const NewsFeedState.loading()) {
+    on<NewsFeedEvent>((event, emitter) async {
+      if (event is NewsFeedFailedFetchRetried) {
+        await _handleFailedFetchRetried(emitter);
+      } else if (event is NewsFeedNextPageRequested) {
+        await _handleNextPageRequested(emitter, event);
+      }
+    });
   }
 
-  void _onFetchAllData(
-    NewsFeedFetchAllData event,
-    Emitter<NewsFeedState> emit,
+  Future<void> _handleFailedFetchRetried(Emitter<NewsFeedState> emitter) async {
+    emitter(state.copyWithNewError(null));
+
+    final firstPageFetchStream = _fetchPostPage(1);
+
+    await emitter.onEach<NewsFeedState>(
+      firstPageFetchStream,
+      onData: emitter.call,
+    );
+  }
+
+  Future<void> _handleNextPageRequested(
+    Emitter<NewsFeedState> emitter,
+    NewsFeedNextPageRequested event,
   ) async {
-    final currentState = state;
+    emitter(state.copyWithNewError(null));
 
-    int page = event.page;
-    List<Post> currentPosts = [];
+    final nextPageFetchStream = _fetchPostPage(event.pageNumber);
 
-    if (currentState is NewsFeedLoaded && page > 1) {
-      currentPosts = currentState.posts;
+    await emitter.onEach<NewsFeedState>(
+      nextPageFetchStream,
+      onData: emitter.call,
+    );
+  }
 
-      if (currentState.hasReachedEnd) {
-        return;
-      }
-
-      emit(currentState.copyWith(isFetchingMore: true));
-    } else {
-      emit(NewsFeedLoading());
+  Stream<NewsFeedState> _fetchPostPage(int page) async* {
+    final response = await _getAllPosts(PageParams(page: page, limit: 10));
+    List<Post>? data;
+    response.fold(
+      (failure) async* {
+        yield state.copyWithNewError(failure.message);
+      },
+      (posts) {
+        data = posts;
+      },
+    );
+    if (data == null) {
+      return;
     }
-
     try {
-      final results = await Future.wait([
-        _getAllPosts(PageParams(page: page, limit: 10)),
-        _getAllStories(NoParams()),
-      ]);
-
-      final postsResult = results[0] as Either<Failure, List<Post>>;
-      final storiesResult = results[1] as Either<Failure, List<Story>>;
-      final posts = postsResult.getOrElse((r) => []);
-      final stories = storiesResult.getOrElse((r) => []);
-
-      final Map<String, UserStories> groupedStories = {};
-      for (var story in stories) {
-        final userId = story.posterId;
-        if (!groupedStories.containsKey(userId)) {
-          groupedStories[userId] = UserStories(
-            userId: userId,
-            userName: story.posterName ?? 'Unknown',
-            stories: [],
-          );
-        }
-        groupedStories[userId]!.stories.add(story);
-      }
-
-      final List<UserStories> userStoriesList = groupedStories.values.toList();
-
-      final hasReachedEnd = posts.isEmpty;
-
-      emit(NewsFeedLoaded(
-        posts: currentPosts + posts,
-        userStories: userStoriesList,
-        isFetchingMore: false,
-        hasReachedEnd: hasReachedEnd,
-      ));
-    } catch (e) {
-      emit(NewsFeedFailure('An error occurred while fetching data.'));
+      final newPage = data!;
+      final newItemList = newPage;
+      final oldItemList = state.itemList ?? [];
+      final completeItemList =
+          page == 1 ? newItemList : (oldItemList + newItemList);
+      final nextPage = newPage.isEmpty ? null : page + 1;
+      var newState = NewsFeedState.success(
+        nextPage: nextPage,
+        itemList: completeItemList,
+      );
+      yield newState;
+    } catch (error) {
+      yield state.copyWithNewError(error);
     }
   }
 }

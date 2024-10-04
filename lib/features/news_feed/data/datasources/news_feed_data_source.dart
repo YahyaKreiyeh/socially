@@ -18,35 +18,57 @@ class NewsFeedLocalDataSourceImpl implements NewsFeedLocalDataSource {
 
   @override
   List<PostModel> loadPosts() {
-    List<PostModel> posts = [];
     final postListString = sharedPreferences.getStringList('posts') ?? [];
-    for (String postJson in postListString) {
-      posts.add(PostModel.fromJson(json.decode(postJson)));
-    }
-    return posts;
+    return postListString
+        .map((postJson) => PostModel.fromJson(json.decode(postJson)))
+        .toList();
   }
 
   @override
   List<StoryModel> loadStories() {
-    List<StoryModel> stories = [];
     final storyListString = sharedPreferences.getStringList('stories') ?? [];
-    for (String storyJson in storyListString) {
-      stories.add(StoryModel.fromJson(json.decode(storyJson)));
-    }
-    return stories;
+    return storyListString
+        .map((storyJson) => StoryModel.fromJson(json.decode(storyJson)))
+        .toList();
   }
 
   @override
   void uploadLocalPosts({required List<PostModel> posts}) {
+    List<PostModel> existingPosts = loadPosts();
+    Map<String, PostModel> postsMap = {};
+    for (var post in posts) {
+      postsMap[post.id] = post;
+    }
+    for (var post in existingPosts) {
+      if (!postsMap.containsKey(post.id)) {
+        postsMap[post.id] = post;
+      }
+    }
+    List<PostModel> combinedPosts = postsMap.values.toList();
+    combinedPosts.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    List<PostModel> first10Posts = combinedPosts.take(10).toList();
     List<String> postListString =
-        posts.map((post) => json.encode(post.toJson())).toList();
+        first10Posts.map((post) => json.encode(post.toJson())).toList();
     sharedPreferences.setStringList('posts', postListString);
   }
 
   @override
   void uploadLocalStories({required List<StoryModel> stories}) {
+    List<StoryModel> existingStories = loadStories();
+    Map<String, StoryModel> storiesMap = {};
+    for (var story in stories) {
+      storiesMap[story.id] = story;
+    }
+    for (var story in existingStories) {
+      if (!storiesMap.containsKey(story.id)) {
+        storiesMap[story.id] = story;
+      }
+    }
+    List<StoryModel> combinedStories = storiesMap.values.toList();
+    combinedStories.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    List<StoryModel> first10Stories = combinedStories.take(10).toList();
     List<String> storyListString =
-        stories.map((story) => json.encode(story.toJson())).toList();
+        first10Stories.map((story) => json.encode(story.toJson())).toList();
     sharedPreferences.setStringList('stories', storyListString);
   }
 }

@@ -139,6 +139,10 @@ void _initNewsFeed() {
     ..registerFactory(
       () => NewsFeedBloc(
         getAllPosts: getIt(),
+      ),
+    )
+    ..registerFactory(
+      () => StoriesBloc(
         getAllStories: getIt(),
       ),
     )

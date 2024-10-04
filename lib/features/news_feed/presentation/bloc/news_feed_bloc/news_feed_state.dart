@@ -1,40 +1,36 @@
 part of 'news_feed_bloc.dart';
 
-abstract class NewsFeedState {}
+class NewsFeedState {
+  final List<Post>? itemList;
+  final int? nextPage;
+  final dynamic error;
+  final dynamic refreshError;
 
-class NewsFeedInitial extends NewsFeedState {}
-
-class NewsFeedLoading extends NewsFeedState {}
-
-class NewsFeedFailure extends NewsFeedState {
-  final String error;
-  NewsFeedFailure(this.error);
-}
-
-class NewsFeedLoaded extends NewsFeedState {
-  final List<Post> posts;
-  final List<UserStories> userStories;
-  final bool isFetchingMore;
-  final bool hasReachedEnd;
-
-  NewsFeedLoaded({
-    required this.posts,
-    required this.userStories,
-    this.isFetchingMore = false,
-    this.hasReachedEnd = false,
+  const NewsFeedState({
+    this.itemList,
+    this.nextPage,
+    this.error,
+    this.refreshError,
   });
 
-  NewsFeedLoaded copyWith({
-    List<Post>? posts,
-    List<UserStories>? userStories,
-    bool? isFetchingMore,
-    bool? hasReachedEnd,
-  }) {
-    return NewsFeedLoaded(
-      posts: posts ?? this.posts,
-      userStories: userStories ?? this.userStories,
-      isFetchingMore: isFetchingMore ?? this.isFetchingMore,
-      hasReachedEnd: hasReachedEnd ?? this.hasReachedEnd,
-    );
-  }
+  const NewsFeedState.loading() : this();
+
+  const NewsFeedState.success({
+    required List<Post> itemList,
+    required int? nextPage,
+  }) : this(itemList: itemList, nextPage: nextPage);
+
+  NewsFeedState copyWithNewError(dynamic error) => NewsFeedState(
+        itemList: itemList,
+        nextPage: nextPage,
+        error: error,
+        refreshError: null,
+      );
+
+  NewsFeedState copyWithNewRefreshError(dynamic refreshError) => NewsFeedState(
+        itemList: itemList,
+        nextPage: nextPage,
+        error: error,
+        refreshError: refreshError,
+      );
 }

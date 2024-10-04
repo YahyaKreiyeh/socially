@@ -28,7 +28,6 @@ class StoryViewerPageState extends State<StoryViewerPage>
   int _currentUserIndex = 0;
   int _currentStoryIndex = 0;
 
-  bool _isPaused = false;
   bool _isDownloading = false;
   double _verticalDrag = 0.0;
 
@@ -63,7 +62,7 @@ class StoryViewerPageState extends State<StoryViewerPage>
     }
   }
 
-  void _loadStory({bool animateToPage = true}) {
+  void _loadStory() {
     _animationController.stop();
     _animationController.reset();
     _animationController.forward();
@@ -271,16 +270,13 @@ class StoryViewerPageState extends State<StoryViewerPage>
       backgroundColor: Colors.black,
       body: GestureDetector(
         onTapDown: (_) {
-          _isPaused = true;
           _animationController.stop();
         },
         onTapUp: _handleTap,
         onLongPressStart: (_) {
-          _isPaused = true;
           _animationController.stop();
         },
         onLongPressEnd: (_) {
-          _isPaused = false;
           _animationController.forward();
         },
         onVerticalDragUpdate: (details) {

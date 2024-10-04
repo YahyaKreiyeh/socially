@@ -1,8 +1,15 @@
 part of 'news_feed_bloc.dart';
 
-abstract class NewsFeedEvent {}
+abstract class NewsFeedEvent {
+  const NewsFeedEvent();
+}
 
-class NewsFeedFetchAllData extends NewsFeedEvent {
-  final int page;
-  NewsFeedFetchAllData({this.page = 1});
+class NewsFeedNextPageRequested extends NewsFeedEvent {
+  final int pageNumber;
+
+  const NewsFeedNextPageRequested({required this.pageNumber});
+}
+
+class NewsFeedFailedFetchRetried extends NewsFeedEvent {
+  const NewsFeedFailedFetchRetried();
 }

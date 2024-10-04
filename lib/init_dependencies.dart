@@ -26,6 +26,7 @@ import 'package:socially/features/news_feed/domain/usecases/upload_post.dart';
 import 'package:socially/features/news_feed/presentation/bloc/comments_bloc/comments_bloc.dart';
 import 'package:socially/features/news_feed/presentation/bloc/news_feed_bloc/news_feed_bloc.dart';
 import 'package:socially/features/news_feed/presentation/bloc/post_upload_bloc/post_upload_bloc.dart';
+import 'package:socially/features/news_feed/presentation/bloc/stories_bloc/stories_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 part 'init_dependencies.main.dart';

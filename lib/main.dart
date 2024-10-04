@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:socially/features/auth/data/datasources/auth_remote_data_source.dart';
-import 'package:socially/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:socially/init_dependencies.dart';
 import 'package:socially/routing/app_router.dart';
 import 'package:socially/routing/routes.dart';
@@ -22,7 +21,6 @@ void main() async {
 String determineInitialRoute() {
   final authRemoteDataSource = getIt<AuthRemoteDataSource>();
   final session = authRemoteDataSource.currentUserSession;
-  getIt<AuthBloc>().add(AuthIsUserLoggedIn());
   if (session != null) {
     return Routes.navigationPage;
   } else {
